@@ -1,0 +1,11 @@
+#!/bin/bash
+
+#BSUB -P PRJ123
+#BSUB -J pageable
+#BSUB -o pageable.%J
+#BSUB -nnodes 1
+#BSUB -W 10
+
+date
+
+OMP_NUM_THREADS=21 jsrun -n1 -c21 -bpacked:21 -g1 -a1 ./average_array_elements

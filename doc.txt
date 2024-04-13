@@ -1,0 +1,2 @@
+wall time is computed
+test was run on amd ryzen 5500u with integrated amd radeon graphics
