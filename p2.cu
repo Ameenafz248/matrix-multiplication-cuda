@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <vector>
 
 
 /*
@@ -104,9 +105,10 @@ int main(int argc, char const *argv[])
 	
 
 	int block_size = 128;
+	std::vector<std::pair<int, int>> thread_dims{{16,8}, {16,16}, {32, 16}};
 	int idx = 0;
 	printf("Time elapsed for unshared memory:\n\n");
-	for (; block_size <= 128; block_size *= 2) {
+	for (std::pair<int, int> thread_dim : thread_dims) {
 		// start to count execution time of GPU version
 		cudaEventRecord(start, 0);
 		// Allocate memory space on the device 
@@ -120,10 +122,10 @@ int main(int argc, char const *argv[])
 		cudaMemcpy(d_a, h_a, sizeof(int)*m*n, cudaMemcpyHostToDevice);
 		cudaMemcpy(d_b, h_b, sizeof(int)*n*k, cudaMemcpyHostToDevice);
 
-		unsigned int grid_rows = (m + block_size - 1) / block_size;
-		unsigned int grid_cols = (k + block_size - 1) / block_size;
+		unsigned int grid_rows = (m + thread_dim.second - 1) / thread_dim.second;
+		unsigned int grid_cols = (k + thread_dim.first - 1) / thread_dim.first;
 		dim3 dimGrid(grid_cols, grid_rows);
-		dim3 dimBlock(block_size, block_size);
+		dim3 dimBlock(thread_dim.first, thread_dim.second);
 	   
 
 		gpu_matrix_mult<<<dimGrid, dimBlock>>>(d_a, d_b, d_c, m, n, k);    
@@ -138,12 +140,12 @@ int main(int argc, char const *argv[])
 
 		// compute time elapse on GPU computing
 		cudaEventElapsedTime(&gpu_unshared_elapsed_time_ms[idx], start, stop);
-		printf("\tTime elapsed on GPU with %d threads/block: %f ms.\n\n", block_size, m, n, n, k, gpu_unshared_elapsed_time_ms[idx]);
+		printf("\tTime elapsed on GPU with %d threads/block: %f ms.\n\n", thread_dim.first * thread_dim.second,  gpu_unshared_elapsed_time_ms[idx]);
 		
-		/* // free memory */
-		/* cudaFree(d_a); */
-		/* cudaFree(d_b); */
-		/* cudaFree(d_c); */
+		// free memory
+		cudaFree(d_a);
+		cudaFree(d_b);
+		cudaFree(d_c);
 		idx++;
 
 	}
@@ -157,7 +159,7 @@ int main(int argc, char const *argv[])
     cudaEventRecord(stop, 0);
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&cpu_elapsed_time_ms, start, stop);
-    printf("Time elapsed on matrix multiplication of %dx%d . %dx%d on CPU: %f ms.\n\n", m, n, n, k, cpu_elapsed_time_ms);
+    printf("Time elapsed on matrix multiplication on CPU: %f ms.\n\n", cpu_elapsed_time_ms);
 
     // validate results computed by GPU
     int all_ok = 1;
@@ -181,7 +183,7 @@ int main(int argc, char const *argv[])
 		printf("unshared speedup:\n");
 		for (auto i = 0; i < 3; ++i) {
 				
-			printf("%f: %f\n", std::pow(2, 7 + i), cpu_elapsed_time_ms / gpu_unshared_elapsed_time_ms[i]);
+			printf("\t%f: %f\n", std::pow(2, 7 + i), cpu_elapsed_time_ms / gpu_unshared_elapsed_time_ms[i]);
 		}
     }
     else
