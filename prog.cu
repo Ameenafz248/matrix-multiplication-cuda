@@ -4,14 +4,15 @@
 #include <vector>
 
 
+#define FLOAT_MAX_T 32
 
 /* loads data from to the shared memory of each block. */
 template <size_t BLOCK_TILE_SIZE_X, size_t BLOCK_TILE_SIZE_Y,
           size_t BLOCK_TILE_SIZE_K, size_t NUM_THREADS, size_t BLOCK_TILE_SKEW_SIZE_X = 0U, size_t BLOCK_TILE_SKEW_SIZE_K = 0U>
-__device__ void load_data_to_shared_memory(int const* A,
-                                           int const* B,
-                                           int A_thread_block_tile[BLOCK_TILE_SIZE_Y][BLOCK_TILE_SIZE_K + BLOCK_TILE_SKEW_SIZE_K],
-                                           int B_thread_block_tile[BLOCK_TILE_SIZE_K][BLOCK_TILE_SIZE_X + BLOCK_TILE_SKEW_SIZE_X],
+__device__ void load_data_to_shared_memory(float const* A,
+                                           float const* B,
+                                           float A_thread_block_tile[BLOCK_TILE_SIZE_Y][BLOCK_TILE_SIZE_K + BLOCK_TILE_SKEW_SIZE_K],
+                                           float B_thread_block_tile[BLOCK_TILE_SIZE_K][BLOCK_TILE_SIZE_X + BLOCK_TILE_SKEW_SIZE_X],
                                            size_t thread_block_tile_idx,
                                            size_t thread_linear_idx,
                                            size_t m, size_t n,
@@ -35,7 +36,7 @@ __device__ void load_data_to_shared_memory(int const* A,
         size_t const A_col_idx{thread_block_tile_idx * BLOCK_TILE_SIZE_K +
                                A_thread_block_tile_col_idx};
 
-        int val{static_cast<int>(0)};
+        float val{static_cast<float>(0)};
         if (A_row_idx < m && A_col_idx < k)
         {
             val = A[A_row_idx * k + A_col_idx];
@@ -63,7 +64,7 @@ __device__ void load_data_to_shared_memory(int const* A,
         size_t const B_col_idx{blockIdx.x * BLOCK_TILE_SIZE_X +
                                B_thread_block_tile_col_idx};
 
-        int val{static_cast<int>(0)};
+        float val{static_cast<float>(0)};
         if (B_row_idx < k && B_col_idx < n)
         {
             val = B[B_row_idx * n + B_col_idx];
@@ -79,8 +80,8 @@ __device__ void load_data_to_shared_memory(int const* A,
 /* invokes load_data_to_shared_memory and finds out respective elements in the resultant matrix.  */
 template <size_t BLOCK_TILE_SIZE_X, size_t BLOCK_TILE_SIZE_Y,
           size_t BLOCK_TILE_SIZE_K>
-__global__ void gemm(size_t m, size_t n, size_t k, int const* A,
-                         int const* B, int* C
+__global__ void gemm(size_t m, size_t n, size_t k, float const* A,
+                         float const* B, float* C
                          )
 {
     constexpr size_t NUM_THREADS{BLOCK_TILE_SIZE_X * BLOCK_TILE_SIZE_Y};
@@ -89,13 +90,13 @@ __global__ void gemm(size_t m, size_t n, size_t k, int const* A,
     size_t const C_col_idx{blockIdx.x * blockDim.x + threadIdx.x};
     size_t const C_row_idx{blockIdx.y * blockDim.y + threadIdx.y};
 
-    __shared__ int A_thread_block_tile[BLOCK_TILE_SIZE_Y][BLOCK_TILE_SIZE_K];
-    __shared__ int B_thread_block_tile[BLOCK_TILE_SIZE_K][BLOCK_TILE_SIZE_X];
+    __shared__ float A_thread_block_tile[BLOCK_TILE_SIZE_Y][BLOCK_TILE_SIZE_K];
+    __shared__ float B_thread_block_tile[BLOCK_TILE_SIZE_K][BLOCK_TILE_SIZE_X];
 
     size_t const num_thread_block_tiles{(k + BLOCK_TILE_SIZE_K - 1) /
                                         BLOCK_TILE_SIZE_K};
 
-    int sum{static_cast<int>(0)};
+    float sum{static_cast<float>(0)};
     for (size_t thread_block_tile_idx{0U};
          thread_block_tile_idx < num_thread_block_tiles;
          ++thread_block_tile_idx)
@@ -124,8 +125,8 @@ __global__ void gemm(size_t m, size_t n, size_t k, int const* A,
 
 /* shared memory multiplication wrapper function with 128 threads per block. */
 void gem_wrap1(size_t m, size_t n, size_t k,
-                            int const* A, int const* B,
-                            int* C)
+                            float const* A, float const* B,
+                            float* C)
                             
 {
     constexpr unsigned int BLOCK_TILE_SIZE_X{16U};
@@ -145,8 +146,8 @@ void gem_wrap1(size_t m, size_t n, size_t k,
 
 /* shared memory multiplication wrapper function with 128 threads per block. */
 void gem_wrap2(size_t m, size_t n, size_t k,
-                            int const* A, int const* B,
-                            int* C)
+                            float const* A, float const* B,
+                            float* C)
                             
 {
     constexpr unsigned int BLOCK_TILE_SIZE_X{16U};
@@ -166,8 +167,8 @@ void gem_wrap2(size_t m, size_t n, size_t k,
 
 /* shared memory multiplication wrapper function with 128 threads per block. */
 void gem_wrap3(size_t m, size_t n, size_t k,
-                            int const* A, int const* B,
-                            int* C)
+                            float const* A, float const* B,
+                            float* C)
                             
 {
     constexpr unsigned int BLOCK_TILE_SIZE_X{32U};
@@ -187,12 +188,12 @@ void gem_wrap3(size_t m, size_t n, size_t k,
 
 
 
-void cpu_matrix_mult(int *h_a, int *h_b, int *h_result, int m, int k, int n) {
+void cpu_matrix_mult(float *h_a, float *h_b, float *h_result, int m, int k, int n) {
     for (int i = 0; i < m; ++i) 
     {
         for (int j = 0; j < n; ++j) 
         {
-            int tmp = 0.0;
+            float tmp = 0.0;
             for (int h = 0; h < k; ++h) 
             {
                 tmp += h_a[i * k + h] * h_b[h * n + j];
@@ -203,11 +204,11 @@ void cpu_matrix_mult(int *h_a, int *h_b, int *h_result, int m, int k, int n) {
 }
 
 
-__global__ void gpu_matrix_mult(int *a,int *b, int *c, int m, int k, int n)
+__global__ void gpu_matrix_mult(float *a,float *b, float *c, int m, int k, int n)
 { 
     int row = blockIdx.y * blockDim.y + threadIdx.y; 
     int col = blockIdx.x * blockDim.x + threadIdx.x;
-    int sum = 0;
+    float sum = 0;
     if( col < n && row < m) 
     {
         for(int i = 0; i < k; i++) 
@@ -222,28 +223,29 @@ __global__ void gpu_matrix_mult(int *a,int *b, int *c, int m, int k, int n)
 
 int main() {
         int m = 4096, k = 8192, n = 2048;
+        // int m = 1024, k = 2048, n = 512;
     srand(3333);
 
-    void (*shared_functions[3])(size_t, size_t, size_t, int const*, int const*, int*) = { &gem_wrap1, &gem_wrap2, &gem_wrap3 };
+    void (*shared_functions[3])(size_t, size_t, size_t, float const*, float const*, float*) = { &gem_wrap1, &gem_wrap2, &gem_wrap3 };
 
     // allocate memory in host RAM, h_cc is used to store CPU result
-    int *h_a, *h_b, *h_c, *h_cc;
-    cudaMallocHost((void **) &h_a, sizeof(int)*m*k);
-    cudaMallocHost((void **) &h_b, sizeof(int)*k*n);
-    cudaMallocHost((void **) &h_c, sizeof(int)*m*n);
-    cudaMallocHost((void **) &h_cc, sizeof(int)*m*n);
+    float *h_a, *h_b, *h_c, *h_cc;
+    cudaMallocHost((void **) &h_a, sizeof(float)*m*k);
+    cudaMallocHost((void **) &h_b, sizeof(float)*k*n);
+    cudaMallocHost((void **) &h_c, sizeof(float)*m*n);
+    cudaMallocHost((void **) &h_cc, sizeof(float)*m*n);
 
     // random initialize matrix A
     for (int i = 0; i < m; ++i) {
         for (int j = 0; j < k; ++j) {
-            h_a[i * k + j] = rand() % 1024;
+            h_a[i * k + j] = ((float)rand()/(float)(RAND_MAX)) * FLOAT_MAX_T;
         }
     }
 
     // random initialize matrix B
     for (int i = 0; i < k; ++i) {
         for (int j = 0; j < n; ++j) {
-            h_b[i * n + j] = rand() % 1024;
+            h_b[i * n + j] = ((float)rand()/(float)(RAND_MAX)) * FLOAT_MAX_T;
         }
     }
 
@@ -274,14 +276,14 @@ int main() {
 		cudaEventRecord(start, 0);
 		// Allocate memory space on the device 
 
-		int *d_a, *d_b, *d_c;
-		cudaMalloc((void **) &d_a, sizeof(int)*m*k);
-		cudaMalloc((void **) &d_b, sizeof(int)*k*n);
-		cudaMalloc((void **) &d_c, sizeof(int)*m*n);
+		float *d_a, *d_b, *d_c;
+		cudaMalloc((void **) &d_a, sizeof(float)*m*k);
+		cudaMalloc((void **) &d_b, sizeof(float)*k*n);
+		cudaMalloc((void **) &d_c, sizeof(float)*m*n);
 
 		// copy matrix A and B from host to device memory
-		cudaMemcpy(d_a, h_a, sizeof(int)*m*k, cudaMemcpyHostToDevice);
-		cudaMemcpy(d_b, h_b, sizeof(int)*k*n, cudaMemcpyHostToDevice);
+		cudaMemcpy(d_a, h_a, sizeof(float)*m*k, cudaMemcpyHostToDevice);
+		cudaMemcpy(d_b, h_b, sizeof(float)*k*n, cudaMemcpyHostToDevice);
 
 		unsigned int grid_rows = (m + thread_dim.second - 1) / thread_dim.second;
 		unsigned int grid_cols = (n + thread_dim.first - 1) / thread_dim.first;
@@ -292,7 +294,7 @@ int main() {
 		gpu_matrix_mult<<<dimGrid, dimBlock>>>(d_a, d_b, d_c, m, k, n);    
 
 		// Transefr results from device to host 
-		cudaMemcpy(h_c, d_c, sizeof(int)*m*n, cudaMemcpyDeviceToHost);
+		cudaMemcpy(h_c, d_c, sizeof(float)*m*n, cudaMemcpyDeviceToHost);
 		cudaThreadSynchronize();
 		// time counting terminate
 		cudaEventRecord(stop, 0);
@@ -329,20 +331,20 @@ int main() {
 		cudaEventRecord(start, 0);
 		// Allocate memory space on the device 
 
-		int *d_a, *d_b, *d_c;
-		cudaMalloc((void **) &d_a, sizeof(int)*m*k);
-		cudaMalloc((void **) &d_b, sizeof(int)*k*n);
-		cudaMalloc((void **) &d_c, sizeof(int)*m*n);
+		float *d_a, *d_b, *d_c;
+		cudaMalloc((void **) &d_a, sizeof(float)*m*k);
+		cudaMalloc((void **) &d_b, sizeof(float)*k*n);
+		cudaMalloc((void **) &d_c, sizeof(float)*m*n);
 
 		// copy matrix A and B from host to device memory
-		cudaMemcpy(d_a, h_a, sizeof(int)*m*k, cudaMemcpyHostToDevice);
-		cudaMemcpy(d_b, h_b, sizeof(int)*k*n, cudaMemcpyHostToDevice);
+		cudaMemcpy(d_a, h_a, sizeof(float)*m*k, cudaMemcpyHostToDevice);
+		cudaMemcpy(d_b, h_b, sizeof(float)*k*n, cudaMemcpyHostToDevice);
 
 	   
 
         shared_functions[i]( m, n, k, d_a, d_b, d_c);
 
-		cudaMemcpy(h_c, d_c, sizeof(int)*m*n, cudaMemcpyDeviceToHost);
+		cudaMemcpy(h_c, d_c, sizeof(float)*m*n, cudaMemcpyDeviceToHost);
 		cudaThreadSynchronize();
 		cudaEventRecord(stop, 0);
 		cudaEventSynchronize(stop);
