@@ -122,7 +122,7 @@ __global__ void gemm(size_t m, size_t n, size_t k, int const* A,
 }
 
 
-//shared memory multiplication wrapper function with 128 threads per block
+/* shared memory multiplication wrapper function with 128 threads per block. */
 void gem_wrap1(size_t m, size_t n, size_t k,
                             int const* A, int const* B,
                             int* C)
@@ -143,7 +143,7 @@ void gem_wrap1(size_t m, size_t n, size_t k,
                                                C);
 }
 
-//shared memory multiplication wrapper function with 128 threads per block
+/* shared memory multiplication wrapper function with 128 threads per block. */
 void gem_wrap2(size_t m, size_t n, size_t k,
                             int const* A, int const* B,
                             int* C)
@@ -164,7 +164,7 @@ void gem_wrap2(size_t m, size_t n, size_t k,
                                                C);
 }
 
-//shared memory multiplication wrapper function with 128 threads per block
+/* shared memory multiplication wrapper function with 128 threads per block. */
 void gem_wrap3(size_t m, size_t n, size_t k,
                             int const* A, int const* B,
                             int* C)
@@ -222,7 +222,6 @@ __global__ void gpu_matrix_mult(int *a,int *b, int *c, int m, int k, int n)
 
 int main() {
         int m = 4096, k = 8192, n = 2048;
-    /* Fixed seed for illustration */
     srand(3333);
 
     void (*shared_functions[3])(size_t, size_t, size_t, int const*, int const*, int*) = { &gem_wrap1, &gem_wrap2, &gem_wrap3 };
