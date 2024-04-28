@@ -6,8 +6,8 @@ NVCCFLAGS =
 #----------------------------------------
 
 
-out: p2.cu
-	${NVCC} ${NVCCFLAGS} -o  out p2.cu
+out: prog.cu
+	${NVCC} ${NVCCFLAGS} -o  out prog.cu
 
 .PHONY: clean
 
