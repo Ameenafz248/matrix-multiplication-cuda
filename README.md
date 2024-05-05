@@ -5,7 +5,7 @@ Compares the performance of matrix multiplication by:
 - Parallel implementation using CUDA or HIP for a GPU but without
 using shared memory.
 - Parallel implementation using CUDA or HIP for a GPU while using
-shared memory effectively
+shared memory (by tiling).
 
 ## How to run?
 
